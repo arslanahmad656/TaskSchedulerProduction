@@ -8,11 +8,6 @@ using Imanami.GroupID.DataTransferObjects.DataContracts.Services.Scheduling;
 using Imanami.GroupID.DataTransferObjects.Enums;
 using Imanami.GroupID.TaskScheduler;
 using log4net;
-using log4net.Attributes;
-using PostSharp.Aspects;
-using PostSharp.Aspects.Internals;
-using PostSharp.ImplementationDetails_bda91a0d;
-using PostSharp.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,7 +22,6 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 
 		static GroupsProcessor()
 		{
-			<>z__a_8.Initialize();
 			GroupsProcessor.logger = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 		}
 
@@ -39,124 +33,68 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 		{
 			FilterCriteria filterCriterium = new FilterCriteria();
 			filterCriterium.set_Child(new List<FilterCriteria>());
-			filterCriterium.set_Operator("and");
+			FilterCriteria filterCriteria = filterCriterium;
+			filterCriteria.set_Operator("and");
 			FilterCriteria filterCriterium1 = new FilterCriteria();
 			filterCriterium1.set_Attribute("IMGIsExpired");
 			filterCriterium1.set_Operator("is exactly");
 			filterCriterium1.set_Value("false");
 			filterCriterium1.set_ValueType(5);
-			filterCriterium.get_Child().Add(filterCriterium1);
+			filterCriteria.get_Child().Add(filterCriterium1);
 			FilterCriteria filterCriterium2 = new FilterCriteria();
 			filterCriterium2.set_Attribute("IMGIsDeleted");
 			filterCriterium2.set_Operator("is exactly");
 			filterCriterium2.set_Value("false");
 			filterCriterium2.set_ValueType(5);
-			filterCriterium.get_Child().Add(filterCriterium2);
-			return filterCriterium;
+			filterCriteria.get_Child().Add(filterCriterium2);
+			return filterCriteria;
 		}
 
 		public List<IdentityStoreObject> GetGroups(string container)
 		{
-			int num = 0;
-			List<IdentityStoreObject> returnValue = null;
-			Arguments<string> argument = new Arguments<string>()
+			int totalFound = 0;
+			SearchFilter searchFilter1 = new SearchFilter();
+			searchFilter1.set_ExtensionDataCriteria(new FilterCriteria());
+			FilterCriteria filterCriterium = new FilterCriteria();
+			filterCriterium.set_Attribute(Helper.KnownProviderAttributes.get_Alias());
+			filterCriterium.set_Operator("present");
+			searchFilter1.set_ProviderCriteria(filterCriterium);
+			SearchFilter searchFilter = searchFilter1;
+			Dictionary<string, bool> containers = null;
+			if (!string.IsNullOrEmpty(container))
 			{
-				Arg0 = container
-			};
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, argument)
-			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886339256318L),
-				Method = <>z__a_8._3
-			};
-			<>z__a_8.a40.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
+				containers = new Dictionary<string, bool>()
 				{
-					try
-					{
-						SearchFilter searchFilter = new SearchFilter();
-						searchFilter.set_ExtensionDataCriteria(new FilterCriteria());
-						FilterCriteria filterCriterium = new FilterCriteria();
-						filterCriterium.set_Attribute(Helper.KnownProviderAttributes.get_Alias());
-						filterCriterium.set_Operator("present");
-						searchFilter.set_ProviderCriteria(filterCriterium);
-						SearchFilter searchFilter1 = searchFilter;
-						Dictionary<string, bool> strs = null;
-						if (!string.IsNullOrEmpty(container))
-						{
-							strs = new Dictionary<string, bool>()
-							{
-								{ container, false }
-							};
-						}
-						returnValue = (new ServicesSearchServiceClient(false)).SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref num, searchFilter1, strs, string.Empty, 1, -1, 20000, new List<string>()
-						{
-							Helper.KnownProviderAttributes.get_EmailAddress(),
-							"IMGFirstUsed",
-							"IMGLastUsed",
-							"IMGUsedCount",
-							"IMGLastProcessedDate"
-						}, false);
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_8.a40.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								returnValue = (List<IdentityStoreObject>)methodExecutionArg.ReturnValue;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
-				}
-				finally
-				{
-					methodExecutionArg.ReturnValue = returnValue;
-					<>z__a_8.a40.OnExit(methodExecutionArg);
-					returnValue = (List<IdentityStoreObject>)methodExecutionArg.ReturnValue;
-				}
+					{ container, false }
+				};
 			}
-			else
+			ServicesSearchServiceClient searchServiceClient = new ServicesSearchServiceClient(false);
+			List<IdentityStoreObject> identityStoreObjects = searchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref totalFound, searchFilter, containers, string.Empty, 1, -1, 20000, new List<string>()
 			{
-				returnValue = (List<IdentityStoreObject>)methodExecutionArg.ReturnValue;
-			}
-			return returnValue;
+				Helper.KnownProviderAttributes.get_EmailAddress(),
+				"IMGFirstUsed",
+				"IMGLastUsed",
+				"IMGUsedCount",
+				"IMGLastProcessedDate"
+			}, false);
+			return identityStoreObjects;
 		}
 
 		private List<MessagingProviderLog> GetGroupUsage(DateTime? fromDate, DateTime toDate)
 		{
-			ServicesSearchServiceClient servicesSearchServiceClient = new ServicesSearchServiceClient(false);
-			List<MessagingProviderLog> messagingProviderLogs = new List<MessagingProviderLog>();
-			bool? includeAllMessageSystems = Helper.CurrentTask.get_IncludeAllMessageSystems();
-			if ((includeAllMessageSystems.HasValue ? includeAllMessageSystems.GetValueOrDefault() : false))
+			ServicesSearchServiceClient searchServiceClient = new ServicesSearchServiceClient(false);
+			List<MessagingProviderLog> messagingProvidersLogs = new List<MessagingProviderLog>();
+			if (Helper.CurrentTask.get_IncludeAllMessageSystems().GetValueOrDefault())
 			{
-				messagingProviderLogs = servicesSearchServiceClient.GetMessagingProviderLog(Helper.CurrentTask.get_IdentityStoreId(), new List<string>(), true, fromDate, toDate);
+				messagingProvidersLogs = searchServiceClient.GetMessagingProviderLog(Helper.CurrentTask.get_IdentityStoreId(), new List<string>(), true, fromDate, toDate);
 			}
-			else if (Helper.CurrentTask.get_MessagingSystems() != null && Helper.CurrentTask.get_MessagingSystems().Count > 0)
+			else if ((Helper.CurrentTask.get_MessagingSystems() == null ? false : Helper.CurrentTask.get_MessagingSystems().Count > 0))
 			{
 				List<string> strs = new List<string>();
 				Helper.CurrentTask.get_MessagingSystems().ForEach((SchedulingMessagingSystems server) => strs.Add(server.get_DisplayName()));
-				messagingProviderLogs = servicesSearchServiceClient.GetMessagingProviderLog(Helper.CurrentTask.get_IdentityStoreId(), strs, false, fromDate, toDate);
+				messagingProvidersLogs = searchServiceClient.GetMessagingProviderLog(Helper.CurrentTask.get_IdentityStoreId(), strs, false, fromDate, toDate);
 			}
-			return messagingProviderLogs;
+			return messagingProvidersLogs;
 		}
 
 		private bool ProcessContainer(string container, DateTime? fromDate, DateTime toDate)
@@ -165,11 +103,11 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 			object obj;
 			try
 			{
-				List<MessagingProviderLog> groupUsage = this.GetGroupUsage(fromDate, toDate);
+				List<MessagingProviderLog> messagingProvidersLogs = this.GetGroupUsage(fromDate, toDate);
 				ILog log = GroupsProcessor.logger;
-				int count = groupUsage.Count;
+				int count = messagingProvidersLogs.Count;
 				log.InfoFormat("Populated log from messaging server(s):{0}", count.ToString());
-				if (groupUsage.Count <= 0)
+				if (messagingProvidersLogs.Count <= 0)
 				{
 					flag = false;
 				}
@@ -180,9 +118,9 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 					obj = (string.IsNullOrEmpty(container) ? " all identity store" : container);
 					count = groups.Count;
 					log1.InfoFormat("Populated groups from {0}:{1}", obj, count.ToString());
-					groups = this.SetGroupUsage(groups, groupUsage, fromDate, toDate);
+					groups = this.SetGroupUsage(groups, messagingProvidersLogs, fromDate, toDate);
 					GroupsProcessor.logger.InfoFormat("Group usage has been processed for selected container", Array.Empty<object>());
-					if (this.SaveGroupUsage(groups, toDate).get_Status() != null)
+					if (this.SaveGroupUsage(groups, toDate).get_Status() != 0)
 					{
 						GroupsProcessor.logger.InfoFormat("Group usage has not been saved for selected container", Array.Empty<object>());
 						flag = false;
@@ -204,82 +142,28 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 
 		public ActionResult ProcessGroupUsage()
 		{
-			ActionResult returnValue = null;
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, Arguments.Empty)
+			GroupsProcessor.logger.InfoFormat("Processing groups usage", Array.Empty<object>());
+			ActionResult actionResult1 = new ActionResult();
+			actionResult1.set_Status(0);
+			ActionResult actionResult = actionResult1;
+			try
 			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886339256320L),
-				Method = <>z__a_8._1
-			};
-			<>z__a_8.a39.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
+				ActionResult result = this.ProcessTask();
+				GroupsProcessor.logger.InfoFormat("Group usage stamped", Array.Empty<object>());
+				if (result.get_Status() == 0)
 				{
-					try
-					{
-						GroupsProcessor.logger.InfoFormat("Processing groups usage", Array.Empty<object>());
-						ActionResult actionResult = new ActionResult();
-						actionResult.set_Status(0);
-						ActionResult actionResult1 = actionResult;
-						try
-						{
-							ActionResult actionResult2 = this.ProcessTask();
-							GroupsProcessor.logger.InfoFormat("Group usage stamped", Array.Empty<object>());
-							if (actionResult2.get_Status() == null)
-							{
-								(new ServicesSchedulingServiceClient(false)).Update(Helper.CurrentTask);
-								GroupsProcessor.logger.InfoFormat("Saved group usage", Array.Empty<object>());
-							}
-							GroupsProcessor.logger.InfoFormat("Processed groups usage", Array.Empty<object>());
-						}
-						catch (Exception exception1)
-						{
-							Exception exception = exception1;
-							actionResult1.set_Status(2);
-							GroupsProcessor.logger.ErrorFormat(exception.Message, Array.Empty<object>());
-						}
-						returnValue = actionResult1;
-					}
-					catch (Exception exception2)
-					{
-						methodExecutionArg.Exception = exception2;
-						<>z__a_8.a39.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								returnValue = (ActionResult)methodExecutionArg.ReturnValue;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
+					(new ServicesSchedulingServiceClient(false)).Update(Helper.CurrentTask);
+					GroupsProcessor.logger.InfoFormat("Saved group usage", Array.Empty<object>());
 				}
-				finally
-				{
-					methodExecutionArg.ReturnValue = returnValue;
-					<>z__a_8.a39.OnExit(methodExecutionArg);
-					returnValue = (ActionResult)methodExecutionArg.ReturnValue;
-				}
+				GroupsProcessor.logger.InfoFormat("Processed groups usage", Array.Empty<object>());
 			}
-			else
+			catch (Exception exception)
 			{
-				returnValue = (ActionResult)methodExecutionArg.ReturnValue;
+				Exception ex = exception;
+				actionResult.set_Status(2);
+				GroupsProcessor.logger.ErrorFormat(ex.Message, Array.Empty<object>());
 			}
-			return returnValue;
+			return actionResult;
 		}
 
 		private ActionResult ProcessTask()
@@ -287,11 +171,10 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 			DateTime now = DateTime.Now;
 			ActionResult actionResult = new ActionResult();
 			actionResult.set_Status(0);
-			ActionResult actionResult1 = actionResult;
+			ActionResult result = actionResult;
 			try
 			{
-				bool? includeAllContainers = Helper.CurrentTask.get_IncludeAllContainers();
-				if ((includeAllContainers.HasValue ? includeAllContainers.GetValueOrDefault() : false))
+				if (Helper.CurrentTask.get_IncludeAllContainers().GetValueOrDefault())
 				{
 					try
 					{
@@ -301,10 +184,10 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 							Helper.CurrentTask.set_LastProcessedTime(new DateTime?(now));
 						}
 					}
-					catch (Exception exception3)
+					catch (Exception exception1)
 					{
-						Exception exception2 = exception3;
-						GroupsProcessor.logger.ErrorFormat(string.Format("An error ocurred while processing group usage for all containers: {0}", exception2.Message), exception2);
+						Exception Ex = exception1;
+						GroupsProcessor.logger.ErrorFormat(string.Format("An error ocurred while processing group usage for all containers: {0}", Ex.Message), Ex);
 					}
 				}
 				else if (Helper.CurrentTask.get_Targets() != null)
@@ -313,42 +196,42 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 						DateTime? lastProcessedTime;
 						try
 						{
-							DateTime value = DateTime.Now.AddDays(-29);
+							DateTime processTime = DateTime.Now.AddDays(-29);
 							if (container.get_LastProcessedTime().HasValue)
 							{
-								value = container.get_LastProcessedTime().Value;
+								processTime = container.get_LastProcessedTime().Value;
 							}
 							else if (Helper.CurrentTask.get_LastProcessedTime().HasValue)
 							{
 								lastProcessedTime = Helper.CurrentTask.get_LastProcessedTime();
-								value = lastProcessedTime.Value;
+								processTime = lastProcessedTime.Value;
 							}
 							else if (Helper.CurrentTask.get_LastRunTime().HasValue)
 							{
 								lastProcessedTime = Helper.CurrentTask.get_LastRunTime();
-								value = lastProcessedTime.Value;
+								processTime = lastProcessedTime.Value;
 							}
 							GroupsProcessor.logger.InfoFormat("Processing group usage for {0} container", container.get_Target());
-							if (this.ProcessContainer(container.get_Target(), new DateTime?(value), now))
+							if (this.ProcessContainer(container.get_Target(), new DateTime?(processTime), now))
 							{
 								container.set_LastProcessedTime(new DateTime?(now));
 							}
 						}
-						catch (Exception exception1)
+						catch (Exception exception)
 						{
-							Exception exception = exception1;
-							GroupsProcessor.logger.ErrorFormat(string.Format("An error ocurred while processing group usage for {0} container: {1}", container, exception.Message), exception);
+							Exception Ex = exception;
+							GroupsProcessor.logger.ErrorFormat(string.Format("An error ocurred while processing group usage for {0} container: {1}", container, Ex.Message), Ex);
 						}
 					});
 					Helper.CurrentTask.set_LastProcessedTime(new DateTime?(now));
 				}
 			}
-			catch (Exception exception4)
+			catch (Exception exception2)
 			{
-				GroupsProcessor.logger.ErrorFormat(exception4.Message, Array.Empty<object>());
-				actionResult1.set_Status(2);
+				GroupsProcessor.logger.ErrorFormat(exception2.Message, Array.Empty<object>());
+				result.set_Status(2);
 			}
-			return actionResult1;
+			return result;
 		}
 
 		private ActionResult SaveGroupUsage(List<IdentityStoreObject> providerResult, DateTime toDate)
@@ -356,12 +239,11 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 			providerResult.ForEach((IdentityStoreObject identityStoreObject) => {
 				DateTime dateTime;
 				identityStoreObject.get_AttributesBusinessObject().get_AttributesCollection().Keys.ToList<string>().ForEach((string key) => {
-					if (!key.Equals("IMGFirstUsed", StringComparison.InvariantCultureIgnoreCase) && !key.Equals("IMGLastUsed", StringComparison.InvariantCultureIgnoreCase) && !key.Equals("IMGUsedCount", StringComparison.InvariantCultureIgnoreCase) && !key.Equals("IMGLastProcessedDate", StringComparison.InvariantCultureIgnoreCase))
+					if ((key.Equals("IMGFirstUsed", StringComparison.InvariantCultureIgnoreCase) || key.Equals("IMGLastUsed", StringComparison.InvariantCultureIgnoreCase) || key.Equals("IMGUsedCount", StringComparison.InvariantCultureIgnoreCase) ? false : !key.Equals("IMGLastProcessedDate", StringComparison.InvariantCultureIgnoreCase)))
 					{
 						identityStoreObject.get_AttributesBusinessObject().get_AttributesCollection().Remove(key);
-						return;
 					}
-					if (!identityStoreObject.get_AttributesBusinessObject().HasValue(key) && !key.Equals("IMGLastProcessedDate", StringComparison.InvariantCultureIgnoreCase))
+					else if ((identityStoreObject.get_AttributesBusinessObject().HasValue(key) ? false : !key.Equals("IMGLastProcessedDate", StringComparison.InvariantCultureIgnoreCase)))
 					{
 						identityStoreObject.get_AttributesBusinessObject().get_AttributesCollection().Remove(key);
 					}
@@ -395,9 +277,10 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 				}
 				GroupsProcessor.logger.InfoFormat("Stamping {0} with last processed date {1} with action {2}", identityStoreObject.get_ObjectIdFromIdentityStore(), identityStoreObject.get_AttributesBusinessObject().get_AttributesCollection()["IMGLastProcessedDate"][0].get_Value(), identityStoreObject.get_AttributesBusinessObject().get_AttributesCollection()["IMGLastProcessedDate"][0].get_Action().ToString());
 			});
-			ServicesGroupServiceClient servicesGroupServiceClient = new ServicesGroupServiceClient(false);
-			string str = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(providerResult);
-			return servicesGroupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), str, typeof(IdentityStoreObject).FullName);
+			ServicesGroupServiceClient searchGroupClient = new ServicesGroupServiceClient(false);
+			string cData = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(providerResult);
+			ActionResult actionResult = searchGroupClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), cData, typeof(IdentityStoreObject).FullName);
+			return actionResult;
 		}
 
 		private List<IdentityStoreObject> SetGroupUsage(List<IdentityStoreObject> providerResult, List<MessagingProviderLog> messagingProvidersLogs, DateTime? fromDate, DateTime toDate)
@@ -406,24 +289,22 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 			messagingProvidersLogs.ForEach((MessagingProviderLog messagingProviderLog) => {
 				try
 				{
-					if (messagingProviderLog != null && messagingProviderLog.get_GroupsLog() != null)
+					if ((messagingProviderLog == null ? false : messagingProviderLog.get_GroupsLog() != null))
 					{
 						GroupsProcessor.logger.InfoFormat("Processing log of server {0} of groups {1}", messagingProviderLog.get_ServerIdentity(), messagingProviderLog.get_GroupsLog().Count.ToString());
 						messagingProviderLog.get_GroupsLog().ForEach((GroupUsage groupLog) => {
 							DateTime dateTime;
+							bool flag;
 							try
 							{
 								ILog log = GroupsProcessor.logger;
 								string groupIdentity = groupLog.get_GroupIdentity();
 								int count = groupLog.get_Usage().Count;
 								log.InfoFormat("Processing group {0} with usage found {1}", groupIdentity, count.ToString());
-								List<IdentityStoreObject> list = providerResult.Where<IdentityStoreObject>((IdentityStoreObject x) => {
-									if (!x.get_AttributesBusinessObject().HasValue(Helper.KnownProviderAttributes.get_EmailAddress()))
-									{
-										return false;
-									}
-									return x.get_AttributesBusinessObject().get_AttributesCollection()[Helper.KnownProviderAttributes.get_EmailAddress()][0].get_Value().Equals(this.groupLog.get_GroupIdentity(), StringComparison.InvariantCultureIgnoreCase);
-								}).ToList<IdentityStoreObject>();
+								List<IdentityStoreObject> list = (
+									from x in providerResult
+									where (!x.get_AttributesBusinessObject().HasValue(Helper.KnownProviderAttributes.get_EmailAddress()) ? false : x.get_AttributesBusinessObject().get_AttributesCollection()[Helper.KnownProviderAttributes.get_EmailAddress()][0].get_Value().Equals(this.groupLog.get_GroupIdentity(), StringComparison.InvariantCultureIgnoreCase))
+									select x).ToList<IdentityStoreObject>();
 								if (list.Count <= 0)
 								{
 									GroupsProcessor.logger.InfoFormat("Group {0} not found in container", groupLog.get_GroupIdentity());
@@ -431,7 +312,7 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 								else
 								{
 									GroupsProcessor.logger.InfoFormat("Group {0} found in container, usage will be calculated and stamped", groupLog.get_GroupIdentity());
-									if (list[0].get_AttributesBusinessObject().HasValue("IMGUsedCount") && list[0].get_AttributesBusinessObject().HasValue("IMGLastUsed"))
+									if ((!list[0].get_AttributesBusinessObject().HasValue("IMGUsedCount") ? false : list[0].get_AttributesBusinessObject().HasValue("IMGLastUsed")))
 									{
 										groupLog.get_Usage().ForEach((DateTime useDate) => {
 											int num;
@@ -444,12 +325,11 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 													list[0].get_AttributesBusinessObject().get_AttributesCollection()["IMGUsedCount"][0].set_Value(num.ToString());
 													list[0].set_StopNotification(false);
 												}
-												else if (useDate > fromDate.Value && useDate < toDate)
+												else if ((useDate <= fromDate.Value ? false : useDate < toDate))
 												{
 													num = Convert.ToInt32(list[0].get_AttributesBusinessObject().get_AttributesCollection()["IMGUsedCount"][0].get_Value()) + 1;
 													list[0].get_AttributesBusinessObject().get_AttributesCollection()["IMGUsedCount"][0].set_Value(num.ToString());
 													list[0].set_StopNotification(false);
-													return;
 												}
 											}
 										});
@@ -517,14 +397,18 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 										}
 										list[0].set_StopNotification(false);
 									}
-									if (list[0].get_AttributesBusinessObject().HasValue("IMGLastUsed"))
+									if (!list[0].get_AttributesBusinessObject().HasValue("IMGLastUsed"))
+									{
+										flag = false;
+									}
+									else
 									{
 										DateTime? lastUsed = groupLog.get_LastUsed();
 										dateTime = Convert.ToDateTime(list[0].get_AttributesBusinessObject().get_AttributesCollection()["IMGLastUsed"][0].get_Value());
-										if ((lastUsed.HasValue ? lastUsed.GetValueOrDefault() <= dateTime : true))
-										{
-											goto Label1;
-										}
+										flag = (lastUsed.HasValue ? lastUsed.GetValueOrDefault() > dateTime : false);
+									}
+									if (flag)
+									{
 										Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute item3 = list[0].get_AttributesBusinessObject().get_AttributesCollection()["IMGLastUsed"][0];
 										dateTime = Convert.ToDateTime(groupLog.get_LastUsed());
 										string str2 = dateTime.ToString("yyyy-MM-dd HH:mm:ss");
@@ -535,10 +419,8 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 										}
 										item3.set_Value(str2);
 										list[0].set_StopNotification(false);
-										goto Label0;
 									}
-								Label1:
-									if (!list[0].get_AttributesBusinessObject().IsIn("IMGLastUsed"))
+									else if (!list[0].get_AttributesBusinessObject().IsIn("IMGLastUsed"))
 									{
 										Dictionary<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> attributesCollection1 = list[0].get_AttributesBusinessObject().get_AttributesCollection();
 										List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> attributes2 = new List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>();
@@ -571,7 +453,6 @@ namespace Imanami.GroupID.TaskScheduler.GUS
 										attribute5.set_Value(str4);
 										attributes3.Add(attribute5);
 									}
-								Label0:
 									GroupsProcessor.logger.InfoFormat("Use count {0}", list[0].get_AttributesBusinessObject().get_AttributesCollection()["IMGUsedCount"][0].get_Value());
 								}
 							}

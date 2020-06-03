@@ -37,34 +37,26 @@ namespace Imanami.GroupID.TaskScheduler
 		{
 			foreach (IdentityStoreObject removalPendingObjectsFromContainer in membershipClient.GetRemovalPendingObjectsFromContainer(identityStoreID, Utility.GetCurrentDate(), containers))
 			{
-				if (StringUtility.EqualsIgnoreCase(Helper.GetAttributeValue(removalPendingObjectsFromContainer, "IMGIsExpired"), bool.TrueString) || StringUtility.EqualsIgnoreCase(Helper.GetAttributeValue(removalPendingObjectsFromContainer, "IMGIsDeleted"), bool.TrueString))
+				if ((StringUtility.EqualsIgnoreCase(Helper.GetAttributeValue(removalPendingObjectsFromContainer, "IMGIsExpired"), bool.TrueString) ? false : !StringUtility.EqualsIgnoreCase(Helper.GetAttributeValue(removalPendingObjectsFromContainer, "IMGIsDeleted"), bool.TrueString)))
 				{
-					continue;
-				}
-				if (!removalPendingObjectsFromContainer.get_AttributesBusinessObject().get_AttributesCollection().Any<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> attr) => {
-					if (!attr.Key.Equals("XMember", StringComparison.OrdinalIgnoreCase))
+					if (removalPendingObjectsFromContainer.get_AttributesBusinessObject().get_AttributesCollection().Any<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> attr) => (!attr.Key.Equals("XMember", StringComparison.OrdinalIgnoreCase) ? false : attr.Value.Count > 0)))
 					{
-						return false;
+						List<MembershipLifecycleGroup> membershipLifecycleGroups = new List<MembershipLifecycleGroup>();
+						KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> keyValuePair = removalPendingObjectsFromContainer.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => e.Key.Equals("XMember", StringComparison.OrdinalIgnoreCase));
+						keyValuePair.Value.ForEach((Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute lMember) => {
+							MembershipType mtype;
+							MembershipLifecycleMember membershipLifecycleMember = new MembershipLifecycleMember();
+							membershipLifecycleMember.set_GUID(lMember.get_Value());
+							membershipLifecycleMember.set_FromDate(Convert.ToDateTime(lMember.get_AttributeCollection()["XBeginningDate"], CultureInfo.InvariantCulture));
+							membershipLifecycleMember.set_ToDate(Convert.ToDateTime(lMember.get_AttributeCollection()["XEndingDate"], CultureInfo.InvariantCulture));
+							MembershipLifecycleMember _notifyObject = membershipLifecycleMember;
+							Enum.TryParse<MembershipType>(lMember.get_AttributeCollection()["XMembershipType"], out mtype);
+							_notifyObject.set_MembershipType(mtype);
+							MembershipJob.AddInNotification(membershipLifecycleGroups, removalPendingObjectsFromContainer, _notifyObject);
+						});
+						membershipClient.SendRemovalRemindernotification(Helper.PrepareCompressedData(membershipLifecycleGroups), identityStoreID);
 					}
-					return attr.Value.Count > 0;
-				}))
-				{
-					continue;
 				}
-				List<MembershipLifecycleGroup> membershipLifecycleGroups = new List<MembershipLifecycleGroup>();
-				KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> keyValuePair = removalPendingObjectsFromContainer.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => e.Key.Equals("XMember", StringComparison.OrdinalIgnoreCase));
-				keyValuePair.Value.ForEach((Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute lMember) => {
-					MembershipType membershipType;
-					MembershipLifecycleMember membershipLifecycleMember = new MembershipLifecycleMember();
-					membershipLifecycleMember.set_GUID(lMember.get_Value());
-					membershipLifecycleMember.set_FromDate(Convert.ToDateTime(lMember.get_AttributeCollection()["XBeginningDate"], CultureInfo.InvariantCulture));
-					membershipLifecycleMember.set_ToDate(Convert.ToDateTime(lMember.get_AttributeCollection()["XEndingDate"], CultureInfo.InvariantCulture));
-					MembershipLifecycleMember membershipLifecycleMember1 = membershipLifecycleMember;
-					Enum.TryParse<MembershipType>(lMember.get_AttributeCollection()["XMembershipType"], out membershipType);
-					membershipLifecycleMember1.set_MembershipType(membershipType);
-					MembershipJob.AddInNotification(membershipLifecycleGroups, removalPendingObjectsFromContainer, membershipLifecycleMember1);
-				});
-				membershipClient.SendRemovalRemindernotification(Helper.PrepareCompressedData(membershipLifecycleGroups), identityStoreID);
 			}
 		}
 
@@ -88,7 +80,7 @@ namespace Imanami.GroupID.TaskScheduler
 		{
 			// 
 			// Current member / type: System.Void Imanami.GroupID.TaskScheduler.MembershipJob::RunMembershipLifeCycle(System.Int32)
-			// File path: C:\Users\Administrator.ERISED\Desktop\Production\original\Imanami.GroupID.TaskScheduler.exe
+			// File path: C:\Users\Administrator.ERISED\Desktop\Production\Imanami.GroupID.TaskScheduler.exe
 			// 
 			// Product version: 2019.1.118.0
 			// Exception in: System.Void RunMembershipLifeCycle(System.Int32)
@@ -128,6 +120,14 @@ namespace Imanami.GroupID.TaskScheduler
 			//    at ..( ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 383
 			//    at ..(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 59
 			//    at ..Visit(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 276
+			//    at ..Visit[,]( ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 286
+			//    at ..Visit( ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 317
+			//    at ..( ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 337
+			//    at ..(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 49
+			//    at ..Visit(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 276
+			//    at ..(IfStatement ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 361
+			//    at ..(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 55
+			//    at ..Visit(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeTransformer.cs:line 276
 			//    at ...Match( , Int32 ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Steps\RebuildAnonymousDelegatesStep.cs:line 112
 			//    at ..( ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Steps\RebuildAnonymousDelegatesStep.cs:line 28
 			//    at ..Visit(ICodeNode ) in C:\DeveloperTooling_JD_Agent1\_work\15\s\OpenSource\Cecil.Decompiler\Ast\BaseCodeVisitor.cs:line 69
@@ -156,12 +156,12 @@ namespace Imanami.GroupID.TaskScheduler
 		private static void SmartGroupExclude(List<string> smartGrpIncludes, List<string> smartGrpExcludes, IdentityStoreObject lGroup, Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute lMember)
 		{
 			KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> keyValuePair;
-			if (smartGrpIncludes != null && smartGrpIncludes.Count > 0 && smartGrpIncludes.Contains(lMember.get_Value()))
+			if ((smartGrpIncludes == null || smartGrpIncludes.Count <= 0 ? false : smartGrpIncludes.Contains(lMember.get_Value())))
 			{
 				keyValuePair = lGroup.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => StringUtility.EqualsIgnoreCase(e.Key, "IMSGIncludes"));
 				keyValuePair.Value.FirstOrDefault<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>((Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute z) => z.get_Value().Equals(lMember.get_Value())).set_Action(2);
 			}
-			if ((smartGrpExcludes == null || smartGrpExcludes.Count <= 0) && !lGroup.get_AttributesBusinessObject().get_AttributesCollection().ContainsKey("IMSGExcludes"))
+			if ((smartGrpExcludes == null || smartGrpExcludes.Count <= 0 ? !lGroup.get_AttributesBusinessObject().get_AttributesCollection().ContainsKey("IMSGExcludes") : false))
 			{
 				Dictionary<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> attributesCollection = lGroup.get_AttributesBusinessObject().get_AttributesCollection();
 				List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> attributes = new List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>();
@@ -170,25 +170,27 @@ namespace Imanami.GroupID.TaskScheduler
 				attribute.set_Value(lMember.get_Value());
 				attributes.Add(attribute);
 				attributesCollection.Add("IMSGExcludes", attributes);
-				return;
 			}
-			keyValuePair = lGroup.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => StringUtility.EqualsIgnoreCase(e.Key, "IMSGExcludes"));
-			List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> value = keyValuePair.Value;
-			Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute attribute1 = new Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute();
-			attribute1.set_Action(1);
-			attribute1.set_Value(lMember.get_Value());
-			value.Add(attribute1);
+			else
+			{
+				keyValuePair = lGroup.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => StringUtility.EqualsIgnoreCase(e.Key, "IMSGExcludes"));
+				List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> value = keyValuePair.Value;
+				Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute attribute1 = new Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute();
+				attribute1.set_Action(1);
+				attribute1.set_Value(lMember.get_Value());
+				value.Add(attribute1);
+			}
 		}
 
 		private static void SmartGroupInclude(List<string> smartGrpIncludes, List<string> smartGrpExcludes, IdentityStoreObject lGroup, Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute lMember)
 		{
 			KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> keyValuePair;
-			if (smartGrpExcludes != null && smartGrpExcludes.Count > 0 && smartGrpExcludes.Contains(lMember.get_Value()))
+			if ((smartGrpExcludes == null || smartGrpExcludes.Count <= 0 ? false : smartGrpExcludes.Contains(lMember.get_Value())))
 			{
 				keyValuePair = lGroup.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => StringUtility.EqualsIgnoreCase(e.Key, "IMSGExcludes"));
 				keyValuePair.Value.FirstOrDefault<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>((Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute z) => z.get_Value().Equals(lMember.get_Value())).set_Action(2);
 			}
-			if ((smartGrpIncludes == null || smartGrpIncludes.Count <= 0) && !lGroup.get_AttributesBusinessObject().get_AttributesCollection().ContainsKey("IMSGIncludes"))
+			if ((smartGrpIncludes == null || smartGrpIncludes.Count <= 0 ? !lGroup.get_AttributesBusinessObject().get_AttributesCollection().ContainsKey("IMSGIncludes") : false))
 			{
 				Dictionary<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> attributesCollection = lGroup.get_AttributesBusinessObject().get_AttributesCollection();
 				List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> attributes = new List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>();
@@ -197,14 +199,16 @@ namespace Imanami.GroupID.TaskScheduler
 				attribute.set_Value(lMember.get_Value());
 				attributes.Add(attribute);
 				attributesCollection.Add("IMSGIncludes", attributes);
-				return;
 			}
-			keyValuePair = lGroup.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => StringUtility.EqualsIgnoreCase(e.Key, "IMSGIncludes"));
-			List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> value = keyValuePair.Value;
-			Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute attribute1 = new Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute();
-			attribute1.set_Action(1);
-			attribute1.set_Value(lMember.get_Value());
-			value.Add(attribute1);
+			else
+			{
+				keyValuePair = lGroup.get_AttributesBusinessObject().get_AttributesCollection().FirstOrDefault<KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>>>((KeyValuePair<string, List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute>> e) => StringUtility.EqualsIgnoreCase(e.Key, "IMSGIncludes"));
+				List<Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute> value = keyValuePair.Value;
+				Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute attribute1 = new Imanami.GroupID.DataTransferObjects.DataContracts.Services.Attribute();
+				attribute1.set_Action(1);
+				attribute1.set_Value(lMember.get_Value());
+				value.Add(attribute1);
+			}
 		}
 	}
 }

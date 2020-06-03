@@ -31,34 +31,34 @@ namespace Imanami.GroupID.TaskScheduler
 
 		public Dictionary<string, Dictionary<int, string>> LoadConfigurations(IdentityStore store, ServicesAdministrationServiceClient _client, List<PermissionAnalyzerServer> servers, KnownAttributes knownAttributes)
 		{
-			Dictionary<string, Dictionary<int, string>> strs1;
+			Dictionary<string, Dictionary<int, string>> strs;
 			try
 			{
 				try
 				{
 					PermissionAnalyzerConfigurationService permissionAnalyzerConfigurationService = new PermissionAnalyzerConfigurationService(store.get_IdentityStoreId());
-					Dictionary<string, Dictionary<int, string>> strs2 = new Dictionary<string, Dictionary<int, string>>();
+					Dictionary<string, Dictionary<int, string>> strs1 = new Dictionary<string, Dictionary<int, string>>();
 					IdentityStorePermissionAnalyzerConfiguration permissionConfigurations = permissionAnalyzerConfigurationService.GetPermissionConfigurations();
-					if (permissionConfigurations != null && permissionConfigurations.get_Servers() != null && permissionConfigurations.get_Servers().Count > 0)
+					if ((permissionConfigurations == null || permissionConfigurations.get_Servers() == null ? false : permissionConfigurations.get_Servers().Count > 0))
 					{
 						if (permissionConfigurations.get_IncludeFutureServers())
 						{
-							List<PermissionAnalyzerServer> criteriaBasedServers = permissionAnalyzerConfigurationService.GetCriteriaBasedServers(permissionConfigurations);
-							IEnumerable<string> strs3 = (
-								from x in criteriaBasedServers
+							List<PermissionAnalyzerServer> allServers = permissionAnalyzerConfigurationService.GetCriteriaBasedServers(permissionConfigurations);
+							IEnumerable<string> strs2 = (
+								from x in allServers
 								select x.get_ServerID()).Except<string>(
 								from y in permissionConfigurations.get_Servers()
 								select y.get_ServerID());
-							IEnumerable<PermissionAnalyzerServer> permissionAnalyzerServers = 
-								from server in criteriaBasedServers
-								where strs3.Any<string>((string id) => server.get_ServerID().Equals(id, StringComparison.InvariantCultureIgnoreCase))
+							IEnumerable<PermissionAnalyzerServer> latestServers = 
+								from server in allServers
+								where strs2.Any<string>((string id) => server.get_ServerID().Equals(id, StringComparison.InvariantCultureIgnoreCase))
 								select server;
-							if (permissionAnalyzerServers != null && permissionAnalyzerServers.Count<PermissionAnalyzerServer>() > 0)
+							if ((latestServers == null ? false : latestServers.Count<PermissionAnalyzerServer>() > 0))
 							{
-								permissionConfigurations.get_Servers().AddRange(permissionAnalyzerServers);
+								permissionConfigurations.get_Servers().AddRange(latestServers);
 							}
 						}
-						if (Helper.CurrentTask.get_Targets() != null && Helper.CurrentTask.get_Targets().Count > 0)
+						if ((Helper.CurrentTask.get_Targets() == null ? false : Helper.CurrentTask.get_Targets().Count > 0))
 						{
 							permissionConfigurations.set_Servers((
 								from server in permissionConfigurations.get_Servers()
@@ -67,13 +67,19 @@ namespace Imanami.GroupID.TaskScheduler
 							Helper.CurrentTask.get_Targets().Clear();
 						}
 						permissionConfigurations.get_Servers().ForEach((PermissionAnalyzerServer server) => {
-							if (permissionConfigurations.get_ExcludedServers() != null && permissionConfigurations.get_ExcludedServers().Any<string>((string excludedServer) => excludedServer.Equals(server.get_ServerID(), StringComparison.InvariantCultureIgnoreCase)))
+							if (permissionConfigurations.get_ExcludedServers() != null)
 							{
-								return;
+								if (permissionConfigurations.get_ExcludedServers().Any<string>((string excludedServer) => excludedServer.Equals(server.get_ServerID(), StringComparison.InvariantCultureIgnoreCase)))
+								{
+									return;
+								}
 							}
-							if (!string.IsNullOrEmpty(server.get_ScheduleJob()) && !server.get_ScheduleJob().Equals(PermissionAnalyzerConfigurationService.GetScheduleName()))
+							if (!string.IsNullOrEmpty(server.get_ScheduleJob()))
 							{
-								return;
+								if (!server.get_ScheduleJob().Equals(PermissionAnalyzerConfigurationService.GetScheduleName()))
+								{
+									return;
+								}
 							}
 							if (server.get_Credentials() == null)
 							{
@@ -86,16 +92,16 @@ namespace Imanami.GroupID.TaskScheduler
 								server.get_Credentials().set_Password(store.get_IdentityStoreConfigurationValues()["Password"]);
 							}
 							server.get_Credentials().set_ServerName(server.get_Server());
-							if (server.get_FileShare() != null && server.get_FileShare().get_Shares() != null)
+							if ((server.get_FileShare() == null ? false : server.get_FileShare().get_Shares() != null))
 							{
-								List<string> strs = new List<string>();
+								List<string> serverShares = new List<string>();
 								if (!server.get_IsServiceAccountConfigured())
 								{
 									server.get_Credentials().set_Password(CryptographyHelper.DecryptFromLocalMachine(server.get_Credentials().get_Password()));
 								}
 								try
 								{
-									strs = permissionAnalyzerConfigurationService.GetNetworkShareResourcesList(server.get_Credentials());
+									serverShares = permissionAnalyzerConfigurationService.GetNetworkShareResourcesList(server.get_Credentials());
 								}
 								catch (Exception exception)
 								{
@@ -104,7 +110,7 @@ namespace Imanami.GroupID.TaskScheduler
 								{
 									server.get_Credentials().set_Password(CryptographyHelper.EncryptForLocalMachine(server.get_Credentials().get_Password()));
 								}
-								strs.ForEach((string latestShare) => {
+								serverShares.ForEach((string latestShare) => {
 									if (!server.get_FileShare().get_Shares().Any<PermissionAnalyzerServerShare>((PermissionAnalyzerServerShare x) => x.get_ShareID().Equals(latestShare, StringComparison.InvariantCultureIgnoreCase)))
 									{
 										List<PermissionAnalyzerServerShare> shares = server.get_FileShare().get_Shares();
@@ -116,24 +122,25 @@ namespace Imanami.GroupID.TaskScheduler
 									}
 								});
 							}
-							this.SetConfigurations(store, server, strs2);
+							this.SetConfigurations(store, server, strs1);
 							servers.Add(server);
 						});
 					}
-					strs1 = strs2;
+					strs = strs1;
+					return strs;
 				}
-				catch (Exception exception2)
+				catch (Exception exception1)
 				{
-					Exception exception1 = exception2;
-					LogExtension.LogException(PermissionAnalyzer.logger, exception1.Message, exception1);
-					return new Dictionary<string, Dictionary<int, string>>();
+					Exception ex = exception1;
+					LogExtension.LogException(PermissionAnalyzer.logger, ex.Message, ex);
 				}
 			}
 			finally
 			{
 				(new ServicesSchedulingServiceClient(false)).Update(Helper.CurrentTask);
 			}
-			return strs1;
+			strs = new Dictionary<string, Dictionary<int, string>>();
+			return strs;
 		}
 
 		public void ProcessJob(long jobId)
@@ -145,16 +152,16 @@ namespace Imanami.GroupID.TaskScheduler
 		{
 			try
 			{
-				ServicesAdministrationServiceClient servicesAdministrationServiceClient = new ServicesAdministrationServiceClient(true);
-				ServicesSearchServiceClient servicesSearchServiceClient = new ServicesSearchServiceClient(false);
-				IdentityStore identityStoreById = servicesAdministrationServiceClient.GetIdentityStoreById(task.get_IdentityStoreId(), true);
-				KnownAttributes knownAttributes = servicesSearchServiceClient.GetKnownAttributes(task.get_IdentityStoreId());
-				List<PermissionAnalyzerServer> permissionAnalyzerServers = new List<PermissionAnalyzerServer>();
-				Dictionary<string, Dictionary<int, string>> strs = this.LoadConfigurations(identityStoreById, servicesAdministrationServiceClient, permissionAnalyzerServers, knownAttributes);
-				List<Schema> identityStoreSchema = servicesAdministrationServiceClient.GetIdentityStoreSchema(task.get_IdentityStoreId());
-				if (permissionAnalyzerServers.Count > 0)
+				ServicesAdministrationServiceClient adminClient = new ServicesAdministrationServiceClient(true);
+				ServicesSearchServiceClient searchClient = new ServicesSearchServiceClient(false);
+				IdentityStore store = adminClient.GetIdentityStoreById(task.get_IdentityStoreId(), true);
+				KnownAttributes knownAttributes = searchClient.GetKnownAttributes(task.get_IdentityStoreId());
+				List<PermissionAnalyzerServer> servers = new List<PermissionAnalyzerServer>();
+				Dictionary<string, Dictionary<int, string>> configurations = this.LoadConfigurations(store, adminClient, servers, knownAttributes);
+				List<Schema> schema = adminClient.GetIdentityStoreSchema(task.get_IdentityStoreId());
+				if (servers.Count > 0)
 				{
-					(new Imanami.PermissionReplicationService.PermissionReplicationService(identityStoreById, strs, identityStoreSchema, knownAttributes)).ReplicatePermissions(1, permissionAnalyzerServers);
+					(new Imanami.PermissionReplicationService.PermissionReplicationService(store, configurations, schema, knownAttributes)).ReplicatePermissions(1, servers);
 				}
 			}
 			catch (Exception exception)
@@ -166,13 +173,13 @@ namespace Imanami.GroupID.TaskScheduler
 
 		private void SetConfigurations(IdentityStore _store, PermissionAnalyzerServer server, Dictionary<string, Dictionary<int, string>> Configurations)
 		{
-			Dictionary<int, string> nums = new Dictionary<int, string>()
+			Dictionary<int, string> config = new Dictionary<int, string>()
 			{
 				{ 3, server.get_Credentials().get_UserName() },
 				{ 4, server.get_Credentials().get_Password() },
 				{ 5, _store.get_ConnectionString() }
 			};
-			Configurations.Add(server.get_Server().ToLower(), nums);
+			Configurations.Add(server.get_Server().ToLower(), config);
 		}
 	}
 }

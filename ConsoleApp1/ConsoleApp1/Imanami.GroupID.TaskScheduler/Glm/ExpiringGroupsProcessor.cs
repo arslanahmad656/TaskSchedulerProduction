@@ -10,16 +10,10 @@ using Imanami.GroupID.DataTransferObjects.DataContracts.Services.Scheduling;
 using Imanami.GroupID.DataTransferObjects.Enums;
 using Imanami.GroupID.TaskScheduler;
 using log4net;
-using log4net.Attributes;
-using PostSharp.Aspects;
-using PostSharp.Aspects.Internals;
-using PostSharp.ImplementationDetails_bda91a0d;
-using PostSharp.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -41,13 +35,13 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 		{
 			Func<IdentityStoreObject, bool> func = null;
 			List<IdentityStoreObject> identityStoreObjects = new List<IdentityStoreObject>();
-			foreach (IdentityStoreObject managedGroup in managedGroups)
+			foreach (IdentityStoreObject pair in managedGroups)
 			{
 				try
 				{
-					List<IdentityStoreObject> allLevelCurrentChildGroups = groupClient.GetAllLevelCurrentChildGroups(identityStoreId, managedGroup.get_ObjectIdFromIdentityStore(), null, this.GetAttributesToLoad());
+					List<IdentityStoreObject> childGroups = groupClient.GetAllLevelCurrentChildGroups(identityStoreId, pair.get_ObjectIdFromIdentityStore(), null, this.GetAttributesToLoad());
 					List<IdentityStoreObject> identityStoreObjects1 = identityStoreObjects;
-					List<IdentityStoreObject> identityStoreObjects2 = allLevelCurrentChildGroups;
+					List<IdentityStoreObject> identityStoreObjects2 = childGroups;
 					Func<IdentityStoreObject, bool> func1 = func;
 					if (func1 == null)
 					{
@@ -58,10 +52,11 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 					}
 					identityStoreObjects1.AddRange(identityStoreObjects2.Where<IdentityStoreObject>(func1));
 				}
-				catch (Exception exception1)
+				catch (Exception exception)
 				{
-					Exception exception = exception1;
-					GroupsProcessor.logger.Error(string.Concat("Error occurred in getting child groups after smart group update. ", exception.Message));
+					Exception ex = exception;
+					GroupsProcessor.logger.Error(string.Concat("Error occurred in getting child groups after smart group update. ", ex.Message));
+					continue;
 				}
 			}
 			return identityStoreObjects;
@@ -69,215 +64,124 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 
 		public virtual void ExpireTheGroups(List<IdentityStoreObject> groups)
 		{
-			Arguments<List<IdentityStoreObject>> argument = new Arguments<List<IdentityStoreObject>>()
+			List<IdentityStoreObject> groupsForExtension = new List<IdentityStoreObject>();
+			List<string> strs = new List<string>();
+			List<string> groupsToNotifyForExtension = new List<string>();
+			List<IdentityStoreObject> groupsToNotifyUpdate = new List<IdentityStoreObject>();
+			List<IdentityStoreObject> groupsOld = DeepCopyExtensionMethods.DeepCopy<List<IdentityStoreObject>>(groups);
+			foreach (IdentityStoreObject group in groups)
 			{
-				Arg0 = groups
-			};
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, argument)
-			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886338994173L),
-				Method = <>z__a_d._3
-			};
-			<>z__a_d.a73.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
+				if (!this.IsGroup(group))
 				{
-					try
-					{
-						List<IdentityStoreObject> identityStoreObjects = new List<IdentityStoreObject>();
-						List<string> strs = new List<string>();
-						List<string> strs1 = new List<string>();
-						List<IdentityStoreObject> identityStoreObjects1 = new List<IdentityStoreObject>();
-						List<IdentityStoreObject> identityStoreObjects2 = DeepCopyExtensionMethods.DeepCopy<List<IdentityStoreObject>>(groups);
-						foreach (IdentityStoreObject group in groups)
-						{
-							if (!this.IsGroup(group))
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is not a group.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
-							}
-							else if (this.IsSystemGroup(group))
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is a system group.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
-							}
-							else if (this.IsGroupInExcludedContainer(group))
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is in excluded containers.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
-							}
-							else if (!this.ShouldExpireSecurityGroup(group))
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is a security group.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
-							}
-							else if (this.ExtendLifeForGUS(group))
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Extending life of object {0}", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()));
-								identityStoreObjects.Add(group);
-								strs1.Add(group.get_ObjectIdFromIdentityStore());
-							}
-							else if (this.PrepareGroupForLifeExtension(group))
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Extending life of object {0}", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()));
-								identityStoreObjects.Add(group);
-							}
-							else if (!this.HasReceivedNotificationInLast7Days(group))
-							{
-								strs.Add(group.get_ObjectIdFromIdentityStore());
-								identityStoreObjects1.Add(group);
-							}
-							else
-							{
-								GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} has received notification within last 7 days. Not expiring.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
-							}
-						}
-						ServicesGroupServiceClient servicesGroupServiceClient = new ServicesGroupServiceClient(false);
-						if (identityStoreObjects.Count > 0)
-						{
-							List<string> strs2 = new List<string>()
-							{
-								"XGroupExpirationDate"
-							};
-							string str = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(this.CloneObjectsForUpdate(strs2, identityStoreObjects, identityStoreObjects2));
-							ActionResult actionResult = servicesGroupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), str, typeof(IdentityStoreObject).FullName);
-							this.LogResults(actionResult, "ExtendGroupsLife");
-						}
-						if (strs.Count > 0)
-						{
-							ActionResult actionResult1 = servicesGroupServiceClient.Expire(Helper.CurrentTask.get_IdentityStoreId(), strs);
-							this.LogResults(actionResult1, "ExpireGroups");
-							this.GetExcludedNestedGroups((
-								from grp in groups
-								where strs.Contains(grp.get_ObjectIdFromIdentityStore())
-								select grp).ToList<IdentityStoreObject>(), strs);
-							actionResult1 = servicesGroupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 28, strs);
-							this.LogResults(actionResult1, "ExpireGroups-Notifications");
-							identityStoreObjects1.ForEach((IdentityStoreObject g) => this.SetAttributeValue("IMGLastSentExpireNotificationDate", DateTime.Now.Date.ToString("yyyy MMMM dd HH:mm:ss"), g.get_AttributesBusinessObject()));
-							List<IdentityStoreObject> identityStoreObjects3 = this.CloneObjectsForUpdate(new List<string>()
-							{
-								"IMGLastSentExpireNotificationDate"
-							}, identityStoreObjects1, null);
-							identityStoreObjects3.ForEach((IdentityStoreObject g) => g.set_StopNotification(true));
-							string str1 = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(identityStoreObjects3);
-							actionResult1 = servicesGroupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), str1, typeof(IdentityStoreObject).FullName);
-							this.LogResults(actionResult1, "UpdateExpireGroupsNotificationData");
-						}
-						if (strs1.Count > 0)
-						{
-							ActionResult actionResult2 = servicesGroupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 35, strs1);
-							this.LogResults(actionResult2, "ExtendedGroups-Notifications");
-						}
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_d.a73.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is not a group.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
 				}
-				finally
+				else if (this.IsSystemGroup(group))
 				{
-					<>z__a_d.a73.OnExit(methodExecutionArg);
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is a system group.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
 				}
+				else if (this.IsGroupInExcludedContainer(group))
+				{
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is in excluded containers.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
+				}
+				else if (!this.ShouldExpireSecurityGroup(group))
+				{
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} is a security group.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
+				}
+				else if (this.ExtendLifeForGUS(group))
+				{
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Extending life of object {0}", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()));
+					groupsForExtension.Add(group);
+					groupsToNotifyForExtension.Add(group.get_ObjectIdFromIdentityStore());
+				}
+				else if (this.PrepareGroupForLifeExtension(group))
+				{
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Extending life of object {0}", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()));
+					groupsForExtension.Add(group);
+				}
+				else if (!this.HasReceivedNotificationInLast7Days(group))
+				{
+					strs.Add(group.get_ObjectIdFromIdentityStore());
+					groupsToNotifyUpdate.Add(group);
+				}
+				else
+				{
+					GroupsProcessor.logger.DebugFormat("ExpireTheGroups. Object {0} has received notification within last 7 days. Not expiring.", this.GetAttributeValue(Helper.KnownProviderAttributes.get_Name(), group.get_AttributesBusinessObject()).get_Value() ?? string.Empty);
+				}
+			}
+			ServicesGroupServiceClient groupServiceClient = new ServicesGroupServiceClient(false);
+			if (groupsForExtension.Count > 0)
+			{
+				List<IdentityStoreObject> groupsToUpdate = this.CloneObjectsForUpdate(new List<string>()
+				{
+					"XGroupExpirationDate"
+				}, groupsForExtension, groupsOld);
+				string compressedString = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(groupsToUpdate);
+				ActionResult result = groupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), compressedString, typeof(IdentityStoreObject).FullName);
+				this.LogResults(result, "ExtendGroupsLife");
+			}
+			if (strs.Count > 0)
+			{
+				ActionResult result = groupServiceClient.Expire(Helper.CurrentTask.get_IdentityStoreId(), strs);
+				this.LogResults(result, "ExpireGroups");
+				this.GetExcludedNestedGroups((
+					from grp in groups
+					where strs.Contains(grp.get_ObjectIdFromIdentityStore())
+					select grp).ToList<IdentityStoreObject>(), strs);
+				result = groupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 28, strs);
+				this.LogResults(result, "ExpireGroups-Notifications");
+				groupsToNotifyUpdate.ForEach((IdentityStoreObject g) => this.SetAttributeValue("IMGLastSentExpireNotificationDate", DateTime.Now.Date.ToString("yyyy MMMM dd HH:mm:ss"), g.get_AttributesBusinessObject()));
+				List<IdentityStoreObject> groupsToUpdate = this.CloneObjectsForUpdate(new List<string>()
+				{
+					"IMGLastSentExpireNotificationDate"
+				}, groupsToNotifyUpdate, null);
+				groupsToUpdate.ForEach((IdentityStoreObject g) => g.set_StopNotification(true));
+				string compressedString = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(groupsToUpdate);
+				result = groupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), compressedString, typeof(IdentityStoreObject).FullName);
+				this.LogResults(result, "UpdateExpireGroupsNotificationData");
+			}
+			if (groupsToNotifyForExtension.Count > 0)
+			{
+				ActionResult result = groupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 35, groupsToNotifyForExtension);
+				this.LogResults(result, "ExtendedGroups-Notifications");
 			}
 		}
 
 		public virtual void ExpireTheGroupsWhichAreDueForExpiry()
 		{
-			int num = 0;
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, Arguments.Empty)
+			int totalFound = 0;
+			ServicesSearchServiceClient searchServiceClient = new ServicesSearchServiceClient(false);
+			FilterCriteria filterCriteria = this.GetExpiringGroupsFilter();
+			Dictionary<string, bool> containers = null;
+			if ((Helper.CurrentTask.get_Targets() == null ? false : Helper.CurrentTask.get_Targets().Count > 0))
 			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886338994174L),
-				Method = <>z__a_d._1
-			};
-			<>z__a_d.a72.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
+				containers = Helper.CurrentTask.get_Targets().ToDictionary<SchedulingTarget, string, bool>((SchedulingTarget target) => target.get_Target(), (SchedulingTarget target) => false);
+			}
+			SearchFilter searchFilter1 = new SearchFilter();
+			searchFilter1.set_ExtensionDataCriteria(filterCriteria);
+			searchFilter1.set_ProviderCriteria(new FilterCriteria());
+			SearchFilter searchFilter = searchFilter1;
+			List<IdentityStoreObject> groupsToExpire = searchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref totalFound, searchFilter, containers, string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
+			this.ExpireTheGroups(groupsToExpire);
+			if (totalFound > 20000)
 			{
-				try
-				{
-					try
-					{
-						ServicesSearchServiceClient servicesSearchServiceClient = new ServicesSearchServiceClient(false);
-						FilterCriteria expiringGroupsFilter = this.GetExpiringGroupsFilter();
-						Dictionary<string, bool> dictionary = null;
-						if (Helper.CurrentTask.get_Targets() != null && Helper.CurrentTask.get_Targets().Count > 0)
-						{
-							dictionary = Helper.CurrentTask.get_Targets().ToDictionary<SchedulingTarget, string, bool>((SchedulingTarget target) => target.get_Target(), (SchedulingTarget target) => false);
-						}
-						SearchFilter searchFilter = new SearchFilter();
-						searchFilter.set_ExtensionDataCriteria(expiringGroupsFilter);
-						searchFilter.set_ProviderCriteria(new FilterCriteria());
-						SearchFilter searchFilter1 = searchFilter;
-						List<IdentityStoreObject> identityStoreObjects = servicesSearchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref num, searchFilter1, dictionary, string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
-						this.ExpireTheGroups(identityStoreObjects);
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_d.a72.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
-				}
-				finally
-				{
-					<>z__a_d.a72.OnExit(methodExecutionArg);
-				}
 			}
 		}
 
 		private void FilterGroups(List<IdentityStoreObject> expiringGroups, List<IdentityStoreObject> groups, int type)
 		{
 			expiringGroups.ForEach((IdentityStoreObject obj) => {
-				ManagedGroupTypes managedGroupType;
+				ManagedGroupTypes groupType;
 				if (obj.get_AttributesBusinessObject() != null)
 				{
-					string attributeValue = this.GetAttributeValue(obj.get_AttributesBusinessObject(), "IMSGManagedGroupType");
-					if (!string.IsNullOrEmpty(attributeValue))
+					string grpType = this.GetAttributeValue(obj.get_AttributesBusinessObject(), "IMSGManagedGroupType");
+					if (!string.IsNullOrEmpty(grpType))
 					{
-						Enum.TryParse<ManagedGroupTypes>(attributeValue, true, out managedGroupType);
-						if (type == 1 && (managedGroupType == 2 || managedGroupType == 6))
+						Enum.TryParse<ManagedGroupTypes>(grpType, true, out groupType);
+						if ((type != 1 ? false : (groupType == 2 ? true : groupType == 6)))
 						{
 							groups.Add(obj);
 						}
-						if (type == 2 && managedGroupType == 3)
+						if ((type != 2 ? false : groupType == 3))
 						{
 							groups.Add(obj);
 						}
@@ -288,127 +192,84 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 
 		private string GetAttributeValue(AttributeCollection collection, string attribute)
 		{
-			if (collection == null || collection.get_AttributesCollection() == null || collection.get_AttributesCollection().Count <= 0 || !collection.IsIn(attribute) || collection.get_AttributesCollection()[attribute] == null || collection.get_AttributesCollection()[attribute].Count <= 0)
+			string value;
+			if ((collection == null || collection.get_AttributesCollection() == null ? false : collection.get_AttributesCollection().Count > 0))
 			{
-				return string.Empty;
+				if (collection.IsIn(attribute))
+				{
+					if ((collection.get_AttributesCollection()[attribute] == null ? false : collection.get_AttributesCollection()[attribute].Count > 0))
+					{
+						value = collection.get_AttributesCollection()[attribute][0].get_Value();
+						return value;
+					}
+				}
 			}
-			return collection.get_AttributesCollection()[attribute][0].get_Value();
+			value = string.Empty;
+			return value;
 		}
 
 		public virtual FilterCriteria GetCriteriaForExpiringNotification()
 		{
-			FilterCriteria returnValue = null;
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, Arguments.Empty)
-			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886338994160L),
-				Method = <>z__a_d._b
-			};
-			<>z__a_d.a77.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
-				{
-					try
-					{
-						FilterCriteria filterCriterium = new FilterCriteria();
-						filterCriterium.set_Child(new List<FilterCriteria>());
-						filterCriterium.set_Operator("and");
-						FilterCriteria filterCriterium1 = new FilterCriteria();
-						filterCriterium1.set_Attribute("IMGIsExpired");
-						filterCriterium1.set_Operator("is exactly");
-						filterCriterium1.set_Value("false");
-						filterCriterium1.set_ValueType(5);
-						filterCriterium.get_Child().Add(filterCriterium1);
-						FilterCriteria filterCriterium2 = new FilterCriteria();
-						filterCriterium2.set_Attribute("IMGIsDeleted");
-						filterCriterium2.set_Operator("is exactly");
-						filterCriterium2.set_Value("false");
-						filterCriterium2.set_ValueType(5);
-						filterCriterium.get_Child().Add(filterCriterium2);
-						FilterCriteria filterCriterium3 = new FilterCriteria();
-						filterCriterium3.set_Attribute("XGroupExpirationDate");
-						filterCriterium3.set_Operator("less or equal");
-						DateTime date = DateTime.Now.AddDays(30);
-						date = date.Date;
-						filterCriterium3.set_Value(date.ToString("yyyy MMMM dd HH:mm:ss"));
-						filterCriterium3.set_ValueType(4);
-						filterCriterium.get_Child().Add(filterCriterium3);
-						returnValue = filterCriterium;
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_d.a77.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								returnValue = (FilterCriteria)methodExecutionArg.ReturnValue;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
-				}
-				finally
-				{
-					methodExecutionArg.ReturnValue = returnValue;
-					<>z__a_d.a77.OnExit(methodExecutionArg);
-					returnValue = (FilterCriteria)methodExecutionArg.ReturnValue;
-				}
-			}
-			else
-			{
-				returnValue = (FilterCriteria)methodExecutionArg.ReturnValue;
-			}
-			return returnValue;
+			FilterCriteria filterCriterium = new FilterCriteria();
+			filterCriterium.set_Child(new List<FilterCriteria>());
+			FilterCriteria filterCriteria = filterCriterium;
+			filterCriteria.set_Operator("and");
+			FilterCriteria filterCriterium1 = new FilterCriteria();
+			filterCriterium1.set_Attribute("IMGIsExpired");
+			filterCriterium1.set_Operator("is exactly");
+			filterCriterium1.set_Value("false");
+			filterCriterium1.set_ValueType(5);
+			filterCriteria.get_Child().Add(filterCriterium1);
+			FilterCriteria filterCriterium2 = new FilterCriteria();
+			filterCriterium2.set_Attribute("IMGIsDeleted");
+			filterCriterium2.set_Operator("is exactly");
+			filterCriterium2.set_Value("false");
+			filterCriterium2.set_ValueType(5);
+			filterCriteria.get_Child().Add(filterCriterium2);
+			FilterCriteria filterCriterium3 = new FilterCriteria();
+			filterCriterium3.set_Attribute("XGroupExpirationDate");
+			filterCriterium3.set_Operator("less or equal");
+			DateTime date = DateTime.Now.AddDays(30);
+			date = date.Date;
+			filterCriterium3.set_Value(date.ToString("yyyy MMMM dd HH:mm:ss"));
+			filterCriterium3.set_ValueType(4);
+			filterCriteria.get_Child().Add(filterCriterium3);
+			return filterCriteria;
 		}
 
 		private void GetExcludedNestedGroups(List<IdentityStoreObject> expiringGroups)
 		{
-			if (expiringGroups != null && expiringGroups.Count > 0)
+			if ((expiringGroups == null ? false : expiringGroups.Count > 0))
 			{
-				List<IdentityStoreObject> identityStoreObjects = new List<IdentityStoreObject>();
-				List<IdentityStoreObject> identityStoreObjects1 = new List<IdentityStoreObject>();
-				this.FilterGroups(expiringGroups, identityStoreObjects, 1);
-				this.FilterGroups(expiringGroups, identityStoreObjects1, 2);
-				FilterCriteria filterCriterium = this.PrepareNestChildsCriteria(identityStoreObjects);
-				if (filterCriterium.get_Child() != null && filterCriterium.get_Child().Count > 0)
+				List<IdentityStoreObject> smartGroups = new List<IdentityStoreObject>();
+				List<IdentityStoreObject> parentDynasties = new List<IdentityStoreObject>();
+				this.FilterGroups(expiringGroups, smartGroups, 1);
+				this.FilterGroups(expiringGroups, parentDynasties, 2);
+				FilterCriteria nestGroupsFilterCriteria = this.PrepareNestChildsCriteria(smartGroups);
+				if ((nestGroupsFilterCriteria.get_Child() == null ? false : nestGroupsFilterCriteria.get_Child().Count > 0))
 				{
-					SearchFilter searchFilter = new SearchFilter();
-					searchFilter.set_ExtensionDataCriteria(filterCriterium);
-					searchFilter.set_ProviderCriteria(new FilterCriteria());
-					SearchFilter searchFilter1 = searchFilter;
-					int num = 0;
-					List<IdentityStoreObject> identityStoreObjects2 = (new ServicesSearchServiceClient(false)).SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref num, searchFilter1, new Dictionary<string, bool>(), string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
-					if (identityStoreObjects2 != null && identityStoreObjects2.Count > 0)
+					SearchFilter searchFilter1 = new SearchFilter();
+					searchFilter1.set_ExtensionDataCriteria(nestGroupsFilterCriteria);
+					searchFilter1.set_ProviderCriteria(new FilterCriteria());
+					SearchFilter searchFilter = searchFilter1;
+					int totalFound = 0;
+					ServicesSearchServiceClient searchServiceClient = new ServicesSearchServiceClient(false);
+					List<IdentityStoreObject> expiringNestedGroups = searchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref totalFound, searchFilter, new Dictionary<string, bool>(), string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
+					if ((expiringNestedGroups == null ? false : expiringNestedGroups.Count > 0))
 					{
 						expiringGroups.AddRange(
-							from grp in identityStoreObjects2
+							from grp in expiringNestedGroups
 							where !expiringGroups.Any<IdentityStoreObject>((IdentityStoreObject expGrp) => expGrp.get_ObjectIdFromIdentityStore().Equals(grp.get_ObjectIdFromIdentityStore(), StringComparison.InvariantCultureIgnoreCase))
 							select grp);
 					}
 				}
-				if (identityStoreObjects1 != null && identityStoreObjects1.Count > 0)
+				if ((parentDynasties == null ? false : parentDynasties.Count > 0))
 				{
-					List<IdentityStoreObject> identityStoreObjects3 = this.EnsureChildGroups(Helper.CurrentTask.get_IdentityStoreId(), new ServicesGroupServiceClient(false), identityStoreObjects1);
-					if (identityStoreObjects3 != null && identityStoreObjects3.Count > 0)
+					List<IdentityStoreObject> allLevelCurrentChildGroups = this.EnsureChildGroups(Helper.CurrentTask.get_IdentityStoreId(), new ServicesGroupServiceClient(false), parentDynasties);
+					if ((allLevelCurrentChildGroups == null ? false : allLevelCurrentChildGroups.Count > 0))
 					{
 						expiringGroups.AddRange(
-							from grp in identityStoreObjects3
+							from grp in allLevelCurrentChildGroups
 							where !expiringGroups.Any<IdentityStoreObject>((IdentityStoreObject expGrp) => expGrp.get_ObjectIdFromIdentityStore().Equals(grp.get_ObjectIdFromIdentityStore(), StringComparison.InvariantCultureIgnoreCase))
 							select grp);
 					}
@@ -418,25 +279,26 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 
 		private void GetExcludedNestedGroups(List<IdentityStoreObject> expiringGroups, List<string> identities)
 		{
-			if (expiringGroups != null && expiringGroups.Count > 0)
+			if ((expiringGroups == null ? false : expiringGroups.Count > 0))
 			{
-				List<IdentityStoreObject> identityStoreObjects = new List<IdentityStoreObject>();
-				List<IdentityStoreObject> identityStoreObjects1 = new List<IdentityStoreObject>();
-				this.FilterGroups(expiringGroups, identityStoreObjects, 1);
-				this.FilterGroups(expiringGroups, identityStoreObjects1, 2);
-				FilterCriteria filterCriterium = this.PrepareNestChildsCriteria(identityStoreObjects);
-				if (filterCriterium.get_Child() != null && filterCriterium.get_Child().Count > 0)
+				List<IdentityStoreObject> smartGroups = new List<IdentityStoreObject>();
+				List<IdentityStoreObject> parentDynasties = new List<IdentityStoreObject>();
+				this.FilterGroups(expiringGroups, smartGroups, 1);
+				this.FilterGroups(expiringGroups, parentDynasties, 2);
+				FilterCriteria nestGroupsFilterCriteria = this.PrepareNestChildsCriteria(smartGroups);
+				if ((nestGroupsFilterCriteria.get_Child() == null ? false : nestGroupsFilterCriteria.get_Child().Count > 0))
 				{
-					SearchFilter searchFilter = new SearchFilter();
-					searchFilter.set_ExtensionDataCriteria(filterCriterium);
-					searchFilter.set_ProviderCriteria(new FilterCriteria());
-					SearchFilter searchFilter1 = searchFilter;
-					int num = 0;
-					List<IdentityStoreObject> identityStoreObjects2 = (new ServicesSearchServiceClient(false)).SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref num, searchFilter1, new Dictionary<string, bool>(), string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
-					if (identityStoreObjects2 != null && identityStoreObjects2.Count > 0)
+					SearchFilter searchFilter1 = new SearchFilter();
+					searchFilter1.set_ExtensionDataCriteria(nestGroupsFilterCriteria);
+					searchFilter1.set_ProviderCriteria(new FilterCriteria());
+					SearchFilter searchFilter = searchFilter1;
+					int totalFound = 0;
+					ServicesSearchServiceClient searchServiceClient = new ServicesSearchServiceClient(false);
+					List<IdentityStoreObject> expiringNestedGroups = searchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref totalFound, searchFilter, new Dictionary<string, bool>(), string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
+					if ((expiringNestedGroups == null ? false : expiringNestedGroups.Count > 0))
 					{
 						List<string> strs = new List<string>();
-						identityStoreObjects2.ForEach((IdentityStoreObject grp) => {
+						expiringNestedGroups.ForEach((IdentityStoreObject grp) => {
 							if (!expiringGroups.Any<IdentityStoreObject>((IdentityStoreObject expGrp) => expGrp.get_ObjectIdFromIdentityStore().Equals(grp.get_ObjectIdFromIdentityStore(), StringComparison.InvariantCultureIgnoreCase)))
 							{
 								strs.Add(grp.get_ObjectIdFromIdentityStore());
@@ -445,13 +307,13 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 						identities.AddRange(strs);
 					}
 				}
-				if (identityStoreObjects1 != null && identityStoreObjects1.Count > 0)
+				if ((parentDynasties == null ? false : parentDynasties.Count > 0))
 				{
-					List<IdentityStoreObject> identityStoreObjects3 = this.EnsureChildGroups(Helper.CurrentTask.get_IdentityStoreId(), new ServicesGroupServiceClient(false), identityStoreObjects1);
-					if (identityStoreObjects3 != null && identityStoreObjects3.Count > 0)
+					List<IdentityStoreObject> allLevelCurrentChildGroups = this.EnsureChildGroups(Helper.CurrentTask.get_IdentityStoreId(), new ServicesGroupServiceClient(false), parentDynasties);
+					if ((allLevelCurrentChildGroups == null ? false : allLevelCurrentChildGroups.Count > 0))
 					{
 						List<string> strs1 = new List<string>();
-						identityStoreObjects3.ForEach((IdentityStoreObject grp) => {
+						allLevelCurrentChildGroups.ForEach((IdentityStoreObject grp) => {
 							if (!expiringGroups.Any<IdentityStoreObject>((IdentityStoreObject expGrp) => expGrp.get_ObjectIdFromIdentityStore().Equals(grp.get_ObjectIdFromIdentityStore(), StringComparison.InvariantCultureIgnoreCase)))
 							{
 								strs1.Add(grp.get_ObjectIdFromIdentityStore());
@@ -465,84 +327,31 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 
 		public virtual FilterCriteria GetExpiringGroupsFilter()
 		{
-			FilterCriteria returnValue = null;
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, Arguments.Empty)
-			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886338994170L),
-				Method = <>z__a_d._5
-			};
-			<>z__a_d.a74.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
-				{
-					try
-					{
-						Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
-						FilterCriteria filterCriterium = new FilterCriteria();
-						filterCriterium.set_Child(new List<FilterCriteria>());
-						filterCriterium.set_Operator("and");
-						FilterCriteria filterCriterium1 = new FilterCriteria();
-						filterCriterium1.set_Attribute("IMGIsExpired");
-						filterCriterium1.set_Operator("is exactly");
-						filterCriterium1.set_Value("false");
-						filterCriterium1.set_ValueType(5);
-						filterCriterium.get_Child().Add(filterCriterium1);
-						FilterCriteria filterCriterium2 = new FilterCriteria();
-						filterCriterium2.set_Attribute("IMGIsDeleted");
-						filterCriterium2.set_Operator("is exactly");
-						filterCriterium2.set_Value("false");
-						filterCriterium2.set_ValueType(5);
-						filterCriterium.get_Child().Add(filterCriterium2);
-						FilterCriteria filterCriterium3 = new FilterCriteria();
-						filterCriterium3.set_Attribute("XGroupExpirationDate");
-						filterCriterium3.set_Operator("less or equal");
-						DateTime date = Utility.GetCurrentDate().Date;
-						filterCriterium3.set_Value(date.ToString("yyyy MMMM dd HH:mm:ss"));
-						filterCriterium3.set_ValueType(4);
-						filterCriterium.get_Child().Add(filterCriterium3);
-						returnValue = filterCriterium;
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_d.a74.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								returnValue = (FilterCriteria)methodExecutionArg.ReturnValue;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
-				}
-				finally
-				{
-					methodExecutionArg.ReturnValue = returnValue;
-					<>z__a_d.a74.OnExit(methodExecutionArg);
-					returnValue = (FilterCriteria)methodExecutionArg.ReturnValue;
-				}
-			}
-			else
-			{
-				returnValue = (FilterCriteria)methodExecutionArg.ReturnValue;
-			}
-			return returnValue;
+			Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
+			FilterCriteria filterCriterium = new FilterCriteria();
+			filterCriterium.set_Child(new List<FilterCriteria>());
+			FilterCriteria filterCriteria = filterCriterium;
+			filterCriteria.set_Operator("and");
+			FilterCriteria filterCriterium1 = new FilterCriteria();
+			filterCriterium1.set_Attribute("IMGIsExpired");
+			filterCriterium1.set_Operator("is exactly");
+			filterCriterium1.set_Value("false");
+			filterCriterium1.set_ValueType(5);
+			filterCriteria.get_Child().Add(filterCriterium1);
+			FilterCriteria filterCriterium2 = new FilterCriteria();
+			filterCriterium2.set_Attribute("IMGIsDeleted");
+			filterCriterium2.set_Operator("is exactly");
+			filterCriterium2.set_Value("false");
+			filterCriterium2.set_ValueType(5);
+			filterCriteria.get_Child().Add(filterCriterium2);
+			FilterCriteria filterCriterium3 = new FilterCriteria();
+			filterCriterium3.set_Attribute("XGroupExpirationDate");
+			filterCriterium3.set_Operator("less or equal");
+			DateTime date = Utility.GetCurrentDate().Date;
+			filterCriterium3.set_Value(date.ToString("yyyy MMMM dd HH:mm:ss"));
+			filterCriterium3.set_ValueType(4);
+			filterCriteria.get_Child().Add(filterCriterium3);
+			return filterCriteria;
 		}
 
 		private IdentityStoreObject GetParentGroup(List<IdentityStoreObject> expiringGroups, IdentityStoreObject group)
@@ -562,154 +371,110 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 
 		protected virtual bool HasReceivedNotificationInLast7Days(IdentityStoreObject group)
 		{
-			if (!Helper.AppConfiguration.get_GenerateThirtyDaysToExpiryReport() && !Helper.AppConfiguration.get_GenerateSevenDaysToExpiryReport() && !Helper.AppConfiguration.get_GenerateOnedayToExpiryReport())
+			bool flag;
+			if ((Helper.AppConfiguration.get_GenerateThirtyDaysToExpiryReport() || Helper.AppConfiguration.get_GenerateSevenDaysToExpiryReport() ? true : Helper.AppConfiguration.get_GenerateOnedayToExpiryReport()))
 			{
-				return false;
-			}
-			TimeSpan timeSpan = new TimeSpan();
-			string value = this.GetAttributeValue("IMGLastSentExpireNotificationDate", group.get_AttributesBusinessObject()).get_Value();
-			if (!string.IsNullOrEmpty(value))
-			{
-				DateTime dateTime = Helper.ParseDateTime(value);
-				if (dateTime.Date == DateTime.MinValue.Date)
+				TimeSpan lastNotificationSpan = new TimeSpan();
+				string lastSentValue = this.GetAttributeValue("IMGLastSentExpireNotificationDate", group.get_AttributesBusinessObject()).get_Value();
+				if (!string.IsNullOrEmpty(lastSentValue))
 				{
-					GroupsProcessor.logger.ErrorFormat("HasReceivedNotificationInLast7Days: Invalid date format {0}", value);
-					return false;
+					DateTime lastSentDate = Helper.ParseDateTime(lastSentValue);
+					if (lastSentDate.Date == DateTime.MinValue.Date)
+					{
+						GroupsProcessor.logger.ErrorFormat("HasReceivedNotificationInLast7Days: Invalid date format {0}", lastSentValue);
+						flag = false;
+						return flag;
+					}
+					lastNotificationSpan = DateTime.Now.Subtract(lastSentDate);
 				}
-				timeSpan = DateTime.Now.Subtract(dateTime);
+				flag = (lastNotificationSpan.Days <= 0 ? false : lastNotificationSpan.Days < 8);
 			}
-			if (timeSpan.Days <= 0)
+			else
 			{
-				return false;
+				flag = false;
 			}
-			return timeSpan.Days < 8;
+			return flag;
 		}
 
 		public virtual void NotifyTheExpiringGroups(List<IdentityStoreObject> expiringGroups)
 		{
-			Arguments<List<IdentityStoreObject>> argument = new Arguments<List<IdentityStoreObject>>()
+			List<string> groupsToNotifyOneDay = new List<string>();
+			List<string> groupsToNotifySevenDays = new List<string>();
+			List<string> groupsToNotifyThirtyDays = new List<string>();
+			List<IdentityStoreObject> groupsToNotifyUpdate = new List<IdentityStoreObject>();
+			foreach (IdentityStoreObject group in expiringGroups)
 			{
-				Arg0 = expiringGroups
-			};
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, argument)
-			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886338994162L),
-				Method = <>z__a_d._9
-			};
-			<>z__a_d.a76.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
+				if (group != null)
 				{
-					try
+					if (this.IsGroup(group))
 					{
-						List<string> strs = new List<string>();
-						List<string> strs1 = new List<string>();
-						List<string> strs2 = new List<string>();
-						List<IdentityStoreObject> identityStoreObjects = new List<IdentityStoreObject>();
-						foreach (IdentityStoreObject expiringGroup in expiringGroups)
+						IdentityStoreObject parentGroup = this.GetParentGroup(expiringGroups, group);
+						if (parentGroup != null)
 						{
-							if (expiringGroup == null || !this.IsGroup(expiringGroup))
+							if (this.IsGroupInExcludedContainer(parentGroup))
 							{
 								continue;
 							}
-							IdentityStoreObject parentGroup = this.GetParentGroup(expiringGroups, expiringGroup);
-							if (parentGroup != null)
+						}
+						else if (this.IsGroupInExcludedContainer(group))
+						{
+							continue;
+						}
+						if (this.ShouldExpireSecurityGroup(group))
+						{
+							if ((this.ExtendedGroups == null || this.ExtendedGroups.Count <= 0 ? true : !this.ExtendedGroups.Contains(group.get_ObjectIdFromIdentityStore())))
 							{
-								if (this.IsGroupInExcludedContainer(parentGroup))
+								int dueDays = 0;
+								if (this.IsNotificationDueOneDay(group, out dueDays))
 								{
-									continue;
+									groupsToNotifyOneDay.Add(group.get_ObjectIdFromIdentityStore());
+									groupsToNotifyUpdate.Add(group);
+								}
+								dueDays = 0;
+								if (this.IsNotificationDueSevenDays(group, out dueDays))
+								{
+									groupsToNotifySevenDays.Add(group.get_ObjectIdFromIdentityStore());
+									groupsToNotifyUpdate.Add(group);
+								}
+								dueDays = 0;
+								if (this.IsNotificationDueThirtyDays(group, out dueDays))
+								{
+									groupsToNotifyThirtyDays.Add(group.get_ObjectIdFromIdentityStore());
+									groupsToNotifyUpdate.Add(group);
 								}
 							}
-							else if (this.IsGroupInExcludedContainer(expiringGroup))
-							{
-								continue;
-							}
-							if (!this.ShouldExpireSecurityGroup(expiringGroup) || this.ExtendedGroups != null && this.ExtendedGroups.Count > 0 && this.ExtendedGroups.Contains(expiringGroup.get_ObjectIdFromIdentityStore()))
-							{
-								continue;
-							}
-							int num = 0;
-							if (this.IsNotificationDueOneDay(expiringGroup, out num))
-							{
-								strs.Add(expiringGroup.get_ObjectIdFromIdentityStore());
-								identityStoreObjects.Add(expiringGroup);
-							}
-							num = 0;
-							if (this.IsNotificationDueSevenDays(expiringGroup, out num))
-							{
-								strs1.Add(expiringGroup.get_ObjectIdFromIdentityStore());
-								identityStoreObjects.Add(expiringGroup);
-							}
-							num = 0;
-							if (!this.IsNotificationDueThirtyDays(expiringGroup, out num))
-							{
-								continue;
-							}
-							strs2.Add(expiringGroup.get_ObjectIdFromIdentityStore());
-							identityStoreObjects.Add(expiringGroup);
-						}
-						if (strs.Count > 0 || strs1.Count > 0 || strs2.Count > 0)
-						{
-							ServicesGroupServiceClient servicesGroupServiceClient = new ServicesGroupServiceClient(false);
-							ActionResult actionResult = null;
-							if (strs.Count > 0)
-							{
-								actionResult = servicesGroupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 38, strs);
-								this.LogResults(actionResult, "NotifyTheExpiringGroups-OneDay-Notifications");
-							}
-							if (strs1.Count > 0)
-							{
-								actionResult = servicesGroupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 39, strs1);
-								this.LogResults(actionResult, "NotifyTheExpiringGroups-SevenDays-Notifications");
-							}
-							if (strs2.Count > 0)
-							{
-								actionResult = servicesGroupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 40, strs2);
-								this.LogResults(actionResult, "NotifyTheExpiringGroups-ThirtyDays-Notifications");
-							}
-							identityStoreObjects.ForEach((IdentityStoreObject g) => this.SetAttributeValue("IMGLastSentExpireNotificationDate", DateTime.Now.Date.ToString("yyyy MMMM dd HH:mm:ss"), g.get_AttributesBusinessObject()));
-							List<IdentityStoreObject> identityStoreObjects1 = this.CloneObjectsForUpdate(new List<string>()
-							{
-								"IMGLastSentExpireNotificationDate"
-							}, identityStoreObjects, null);
-							identityStoreObjects1.ForEach((IdentityStoreObject g) => g.set_StopNotification(true));
-							string str = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(identityStoreObjects1);
-							actionResult = servicesGroupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), str, typeof(IdentityStoreObject).FullName);
-							this.LogResults(actionResult, "NotifyTheExpiringGroups-AfterNotificationsUpdate");
-						}
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_d.a76.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
 						}
 					}
 				}
-				finally
+			}
+			if ((groupsToNotifyOneDay.Count > 0 || groupsToNotifySevenDays.Count > 0 ? true : groupsToNotifyThirtyDays.Count > 0))
+			{
+				ServicesGroupServiceClient groupServiceClient = new ServicesGroupServiceClient(false);
+				ActionResult result = null;
+				if (groupsToNotifyOneDay.Count > 0)
 				{
-					<>z__a_d.a76.OnExit(methodExecutionArg);
+					result = groupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 38, groupsToNotifyOneDay);
+					this.LogResults(result, "NotifyTheExpiringGroups-OneDay-Notifications");
 				}
+				if (groupsToNotifySevenDays.Count > 0)
+				{
+					result = groupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 39, groupsToNotifySevenDays);
+					this.LogResults(result, "NotifyTheExpiringGroups-SevenDays-Notifications");
+				}
+				if (groupsToNotifyThirtyDays.Count > 0)
+				{
+					result = groupServiceClient.SendGlmNotification(Helper.CurrentTask.get_IdentityStoreId(), 40, groupsToNotifyThirtyDays);
+					this.LogResults(result, "NotifyTheExpiringGroups-ThirtyDays-Notifications");
+				}
+				groupsToNotifyUpdate.ForEach((IdentityStoreObject g) => this.SetAttributeValue("IMGLastSentExpireNotificationDate", DateTime.Now.Date.ToString("yyyy MMMM dd HH:mm:ss"), g.get_AttributesBusinessObject()));
+				List<IdentityStoreObject> groupsToUpdate = this.CloneObjectsForUpdate(new List<string>()
+				{
+					"IMGLastSentExpireNotificationDate"
+				}, groupsToNotifyUpdate, null);
+				groupsToUpdate.ForEach((IdentityStoreObject g) => g.set_StopNotification(true));
+				string compressedString = DataCompressionHelper.CompressObjects<List<IdentityStoreObject>>(groupsToUpdate);
+				result = groupServiceClient.UpdateManyWithCompression(Helper.CurrentTask.get_IdentityStoreId(), compressedString, typeof(IdentityStoreObject).FullName);
+				this.LogResults(result, "NotifyTheExpiringGroups-AfterNotificationsUpdate");
 			}
 		}
 
@@ -720,17 +485,18 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 			{
 				if (!Helper.AppConfiguration.get_IsGroupAttestationEnabled())
 				{
-					string value = this.GetAttributeValue("IMGLastSentExpireNotificationDate", grp.get_AttributesBusinessObject()).get_Value();
-					if (!string.IsNullOrEmpty(value))
+					TimeSpan lastNotificationSpan = new TimeSpan();
+					string lastSentValue = this.GetAttributeValue("IMGLastSentExpireNotificationDate", grp.get_AttributesBusinessObject()).get_Value();
+					if (!string.IsNullOrEmpty(lastSentValue))
 					{
-						DateTime dateTime = Helper.ParseDateTime(value);
-						if (dateTime.Date == DateTime.MinValue.Date)
+						DateTime lastSentDate = Helper.ParseDateTime(lastSentValue);
+						if (lastSentDate.Date == DateTime.MinValue.Date)
 						{
-							GroupsProcessor.logger.ErrorFormat("PrepareGroupForLifeExtension: Invalid date format {0}", value);
+							GroupsProcessor.logger.ErrorFormat("PrepareGroupForLifeExtension: Invalid date format {0}", lastSentValue);
 						}
-						DateTime.Now.Subtract(dateTime);
+						lastNotificationSpan = DateTime.Now.Subtract(lastSentDate);
 					}
-					else if (Helper.AppConfiguration.get_GenerateSevenDaysToExpiryReport() || Helper.AppConfiguration.get_GenerateOnedayToExpiryReport())
+					else if ((Helper.AppConfiguration.get_GenerateSevenDaysToExpiryReport() ? true : Helper.AppConfiguration.get_GenerateOnedayToExpiryReport()))
 					{
 						DateTime date = DateTime.Now.AddDays(7);
 						date = date.Date;
@@ -738,19 +504,19 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 						flag = true;
 						return flag;
 					}
-					return false;
 				}
 				else
 				{
 					flag = false;
+					return flag;
 				}
 			}
-			catch (Exception exception1)
+			catch (Exception exception)
 			{
-				Exception exception = exception1;
-				LogExtension.LogException(GroupsProcessor.logger, string.Format("An Error occured while performing GLM Expiry operation on group: {0} Reason: {1}", this.GetAttributeValue(Helper.KnownProviderAttributes.get_DisplayName(), grp.get_AttributesBusinessObject()).get_Value() ?? string.Empty, exception.Message), exception);
-				return false;
+				Exception ex = exception;
+				LogExtension.LogException(GroupsProcessor.logger, string.Format("An Error occured while performing GLM Expiry operation on group: {0} Reason: {1}", this.GetAttributeValue(Helper.KnownProviderAttributes.get_DisplayName(), grp.get_AttributesBusinessObject()).get_Value() ?? string.Empty, ex.Message), ex);
 			}
+			flag = false;
 			return flag;
 		}
 
@@ -758,82 +524,37 @@ namespace Imanami.GroupID.TaskScheduler.Glm
 		{
 			FilterCriteria filterCriterium = new FilterCriteria();
 			filterCriterium.set_Child(new List<FilterCriteria>());
-			FilterCriteria filterCriterium1 = filterCriterium;
-			filterCriterium1.set_Operator("or");
-			foreach (IdentityStoreObject expiringGroup in expiringGroups)
+			FilterCriteria filterCriteria = filterCriterium;
+			filterCriteria.set_Operator("or");
+			foreach (IdentityStoreObject obj in expiringGroups)
 			{
-				FilterCriteria filterCriterium2 = new FilterCriteria();
-				filterCriterium2.set_Attribute("IMSGObjectParentKey");
-				filterCriterium2.set_Operator("is exactly");
-				filterCriterium2.set_Value(expiringGroup.get_ObjectIdFromIdentityStore());
-				filterCriterium2.set_ValueType(2);
-				filterCriterium1.get_Child().Add(filterCriterium2);
+				FilterCriteria filterCriterium1 = new FilterCriteria();
+				filterCriterium1.set_Attribute("IMSGObjectParentKey");
+				filterCriterium1.set_Operator("is exactly");
+				filterCriterium1.set_Value(obj.get_ObjectIdFromIdentityStore());
+				filterCriterium1.set_ValueType(2);
+				filterCriteria.get_Child().Add(filterCriterium1);
 			}
-			return filterCriterium1;
+			return filterCriteria;
 		}
 
 		public virtual void SendNotificationToExpiringGroups()
 		{
-			int num = 0;
-			MethodExecutionArgs methodExecutionArg = new MethodExecutionArgs(this, Arguments.Empty)
+			int totalFound = 0;
+			ServicesSearchServiceClient searchServiceClient = new ServicesSearchServiceClient(false);
+			FilterCriteria filterCriteria = this.GetCriteriaForExpiringNotification();
+			Dictionary<string, bool> containers = null;
+			if ((Helper.CurrentTask.get_Targets() == null ? false : Helper.CurrentTask.get_Targets().Count > 0))
 			{
-				DeclarationIdentifier = new DeclarationIdentifier(-4780260886338994169L),
-				Method = <>z__a_d._7
-			};
-			<>z__a_d.a75.OnEntry(methodExecutionArg);
-			if (methodExecutionArg.FlowBehavior != FlowBehavior.Return)
-			{
-				try
-				{
-					try
-					{
-						ServicesSearchServiceClient servicesSearchServiceClient = new ServicesSearchServiceClient(false);
-						FilterCriteria criteriaForExpiringNotification = this.GetCriteriaForExpiringNotification();
-						Dictionary<string, bool> dictionary = null;
-						if (Helper.CurrentTask.get_Targets() != null && Helper.CurrentTask.get_Targets().Count > 0)
-						{
-							dictionary = Helper.CurrentTask.get_Targets().ToDictionary<SchedulingTarget, string, bool>((SchedulingTarget target) => target.get_Target(), (SchedulingTarget target) => true);
-						}
-						SearchFilter searchFilter = new SearchFilter();
-						searchFilter.set_ExtensionDataCriteria(criteriaForExpiringNotification);
-						searchFilter.set_ProviderCriteria(new FilterCriteria());
-						SearchFilter searchFilter1 = searchFilter;
-						List<IdentityStoreObject> identityStoreObjects = servicesSearchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref num, searchFilter1, dictionary, string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
-						this.GetExcludedNestedGroups(identityStoreObjects);
-						this.NotifyTheExpiringGroups(identityStoreObjects);
-					}
-					catch (Exception exception)
-					{
-						methodExecutionArg.Exception = exception;
-						<>z__a_d.a75.OnException(methodExecutionArg);
-						switch (methodExecutionArg.FlowBehavior)
-						{
-							case FlowBehavior.Continue:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.Return:
-							{
-								methodExecutionArg.Exception = null;
-								break;
-							}
-							case FlowBehavior.ThrowException:
-							{
-								throw methodExecutionArg.Exception;
-							}
-							default:
-							{
-								throw;
-							}
-						}
-					}
-				}
-				finally
-				{
-					<>z__a_d.a75.OnExit(methodExecutionArg);
-				}
+				containers = Helper.CurrentTask.get_Targets().ToDictionary<SchedulingTarget, string, bool>((SchedulingTarget target) => target.get_Target(), (SchedulingTarget target) => true);
 			}
+			SearchFilter searchFilter1 = new SearchFilter();
+			searchFilter1.set_ExtensionDataCriteria(filterCriteria);
+			searchFilter1.set_ProviderCriteria(new FilterCriteria());
+			SearchFilter searchFilter = searchFilter1;
+			List<IdentityStoreObject> expiringGroups = searchServiceClient.SearchEx(Helper.CurrentTask.get_IdentityStoreId(), 2, ref totalFound, searchFilter, containers, string.Empty, 1, -1, 20000, this.GetAttributesToLoad(), false);
+			this.GetExcludedNestedGroups(expiringGroups);
+			this.NotifyTheExpiringGroups(expiringGroups);
 		}
 	}
 }
