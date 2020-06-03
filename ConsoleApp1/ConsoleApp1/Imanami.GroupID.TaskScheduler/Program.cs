@@ -23,6 +23,7 @@ using System.Security.Cryptography;
 
 namespace Imanami.GroupID.TaskScheduler
 {
+	//old
 	public sealed class Program
 	{
 		private static ILog logger;
