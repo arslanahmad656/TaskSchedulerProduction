@@ -43,11 +43,33 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\AttributesHelper.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Constants.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Glm\EligibleGroupsForLifeExtensionProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Glm\ExpiredGroupsProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Glm\ExpiringGroupsProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Glm\GroupsProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Glm\JobProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\GUS\GroupsProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\GUS\JobProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Helper.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\JobProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\ManagedByJobs.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\MembershipJob.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\OrphanGroupProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\PermissionAnalyzer.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\Program.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\SchemaReplicationProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\SettingsSecureFileStore.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\SmartGroupJobProcessor.cs" />
+    <Compile Include="Imanami.GroupID.TaskScheduler\WorkflowApproverAccelerationProcessor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Imanami.GroupID.TaskSchedulerReferences\PostSharp.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
